@@ -33,6 +33,7 @@ std::vector<Token> tokenize(const std::string& str){
             if(buf == "return"){
                 tokens.push_back({.type = TokenType::_return});
                 buf.clear();
+                continue;
             }else{
                 std::cerr << "Not return" << std::endl;
                 exit(EXIT_FAILURE);
@@ -60,20 +61,30 @@ std::vector<Token> tokenize(const std::string& str){
     return tokens;
 }
 
-std::string tokens_to_asm(std::vector<Token>& tokens){
-    std::string output;
-    for (int i = 0; i < tokens.capacity(); i++) {
+std::string tokens_to_asm(const std::vector<Token>& tokens){
+    std::stringstream output;
+    output << "global _start\n_start:\n";
+    for (int i = 0; i < tokens.size(); i++) {
         const Token& token = tokens.at(i);
         if(token.type == TokenType::_return){
-
+            if(i + 1 < tokens.size() && tokens.at(i + 1).type == TokenType::int_lit){
+                if(i + 2 < tokens.size() && tokens.at(i + 2).type == TokenType::semi){
+                    output << "    mov rax, 60\n";
+                    output << "    mov rdi, " << tokens.at(i + 1).value.value() << "\n";
+                    output << "    syscall";
+                }
+            }
         }
     }
+    return output.str();
 }
 
-int main(int argc, char* argv[]) {
-    if(argc != 2) {
-        std::cerr  << "Incorrect Usage. Correct Usage..." << std::endl;
-        std::cerr  << "MikoCompiler <file.mk> "  << std::endl;
+
+
+int main(int argc, char* argv[]){
+    if (argc != 2){
+        std::cerr << "Incorrect Usage. Correct Usage..." << std::endl;
+        std::cerr << "MikoCompiler <file.mk>" << std::endl;
         return EXIT_FAILURE;
     }
     std::cout << "Compiling " << argv[1] << std::endl;
@@ -88,7 +99,14 @@ int main(int argc, char* argv[]) {
         input.close();
     }
 
-    std::vector<Token> t = tokenize(contents);
+    std::vector<Token> tokens = tokenize(contents);
+    {
+        std::fstream file("out.asm", std::ios::out);
+        file << tokens_to_asm(tokens);
+    }
+
+    system("nasm -f win64 out.asm");
+    system("ld -o out.exe out.o");
 
     return EXIT_SUCCESS;
 }
